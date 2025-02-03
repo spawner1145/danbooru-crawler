@@ -183,16 +183,16 @@ async def main(txt_path, output_zip, csv_file, timeout=1000, proxies=None, start
     return None
 
 if __name__ == "__main__":
-    txt_path = "artist_full.txt"  # Ensure this file exists in the correct path
+    txt_path = "artist_full.txt"  # 存放标签行的txt文件(同目录下)
     output_zip = "images.zip"
     csv_file = "train.csv"
-    timeout = 5000  # Set your desired timeout value
+    timeout = 5000  # 超时时间
     proxies = {"http://": 'http://127.0.0.1:7890', "https://": 'http://127.0.0.1:7890'}
     # 全局变量，控制每次处理多少个标签行
     max_lines_per_batch = 5
     # 控制每个标签的最大下载图片数量
     max_images = 50
-    # 全局变量，控制txt文件的启始行
+    # 全局变量，控制txt文件的启始标签行
     start_line = 1
 
     total_lines_processed = 0
