@@ -1,4 +1,3 @@
-# 相关参数在代码底部配置
 import httpx
 import asyncio
 import aiofiles
@@ -55,16 +54,16 @@ async def download_image(session, url, filename, line, zipf, csv_writer, csvfile
             retries += 1
     
     print(f"放弃下载: {url}")
-    error_flag['value'] = True
-    error_flag['lines'].append(line_number)
+    error_flag['value'] = True  # 设置错误标志
+    error_flag['lines'].append(line_number)  # 记录出错的行号
     return False
 
-async def process_line(session, line, line_number, max_images=10, zipf=None, csv_writer=None, csvfile=None, existing_filenames=None, error_flag=None):
+async def process_line(session, line, line_number, max_images=5, zipf=None, csv_writer=None, csvfile=None, existing_filenames=None, error_flag=None):
     processed_tags = line.replace(' ', '_')
     page = 1
-    downloaded_count = 0
+    processed_count = 0
     
-    while downloaded_count < max_images:
+    while processed_count < max_images:
         url = f"https://kagamihara.donmai.us/posts.json?page={page}&tags={processed_tags}"
         try:
             response = await session.get(url)
@@ -94,17 +93,18 @@ async def process_line(session, line, line_number, max_images=10, zipf=None, csv
                         
                         if comparison_filename in existing_filenames:
                             print(f"文件已存在: {comparison_filename}, 跳过下载")
-                            downloaded_count += 1
-                            continue
-                        
-                        success = await download_image(session, image_url, unique_filename, line, zipf, csv_writer, csvfile, error_flag, line_number)
-                        if success:
-                            downloaded_count += 1
-                            existing_filenames.add(comparison_filename)
-                            if downloaded_count >= max_images:
-                                break
-                        elif error_flag['value']:
-                            return
+                            processed_count += 1  # 即使文件已存在也计入总数
+                            if processed_count >= max_images:
+                                return  # 达到最大数量，跳出循环
+                        else:
+                            success = await download_image(session, image_url, unique_filename, line, zipf, csv_writer, csvfile, error_flag, line_number)
+                            if success:
+                                processed_count += 1
+                                existing_filenames.add(comparison_filename)
+                                if processed_count >= max_images:
+                                    return  # 达到最大数量，跳出循环
+                            elif error_flag['value']:
+                                return  # 停止处理当前行
                     else:
                         print(f"未找到合适的变体: {item}")
             else:
@@ -112,8 +112,8 @@ async def process_line(session, line, line_number, max_images=10, zipf=None, csv
                 break
         except Exception as e:
             print(f"请求异常: {e} - {url}")
-            error_flag['value'] = True
-            error_flag['lines'].append(line_number)
+            error_flag['value'] = True  # 设置错误标志
+            error_flag['lines'].append(line_number)  # 记录出错的行号
             return
         page += 1
 
@@ -122,12 +122,13 @@ async def read_existing_filenames(csv_file):
     if os.path.exists(csv_file):
         with open(csv_file, mode='r', newline='', encoding='utf-8') as csvfile:
             csv_reader = csv.DictReader(csvfile)
+            # Skip header row
             next(csv_reader, None)
             for row in csv_reader:
                 existing_filenames.add(row['filename'])
     return existing_filenames
 
-async def main(txt_path, output_zip, csv_file, timeout=1000, proxies=None, start_line=1, max_lines_per_batch=5, max_images=10):
+async def main(txt_path, output_zip, csv_file, timeout=1000, proxies=None, start_line=1, max_lines_per_batch=5, max_images=5):
     print("开始执行脚本...")
     print(f"当前工作目录: {os.getcwd()}")
     print(f"尝试打开文件: {txt_path}")
@@ -164,7 +165,7 @@ async def main(txt_path, output_zip, csv_file, timeout=1000, proxies=None, start
             existing_filenames = await read_existing_filenames(csv_file)
             
             with zipfile.ZipFile(output_zip, 'a', zipfile.ZIP_DEFLATED) as zipf:
-                error_flag = {'value': False, 'lines': []}
+                error_flag = {'value': False, 'lines': []}  # 初始化错误标志和行号列表
                 batch_start_line = start_line
                 while lines:
                     batch_lines = lines[:max_lines_per_batch]
@@ -176,28 +177,28 @@ async def main(txt_path, output_zip, csv_file, timeout=1000, proxies=None, start
                         await process_line(session, line, current_line_number, max_images=max_images, zipf=zipf, csv_writer=csv_writer, csvfile=csvfile, existing_filenames=existing_filenames, error_flag=error_flag)
                         if error_flag['value']:
                             print(f"检测到下载异常，停止脚本。出错的行号: {', '.join(map(str, sorted(set(error_flag['lines']))))}")
-                            return min(error_flag['lines'])
+                            return min(error_flag['lines'])  # 返回最小的出错行号
             
                     batch_start_line += max_lines_per_batch
     return None
 
 if __name__ == "__main__":
-    txt_path = "artist_full.txt" # 存放你的标签行的 txt 文件，注意要同一个目录下
+    txt_path = "artist_full.txt"  # Ensure this file exists in the correct path
     output_zip = "images.zip"
     csv_file = "train.csv"
-    timeout = 5000  # 超时时间，毫秒
+    timeout = 5000  # Set your desired timeout value
     proxies = {"http://": 'http://127.0.0.1:7890', "https://": 'http://127.0.0.1:7890'}
     # 全局变量，控制每次处理多少个标签行
     max_lines_per_batch = 5
     # 控制每个标签的最大下载图片数量
     max_images = 50
-    # 全局变量，控制txt文件的启始标签行
-    start_line = 763
+    # 全局变量，控制txt文件的启始行
+    start_line = 1
 
     total_lines_processed = 0
     while True:
         result = asyncio.run(main(txt_path, output_zip, csv_file, timeout, proxies, start_line, max_lines_per_batch, max_images))
-        if result is None:
+        if result is None:  # 如果 main 返回 None，则表示没有错误发生，停止整个程序
             break
         else:
             start_line = result  # 将 start_line 设置为出错的行号并继续处理
