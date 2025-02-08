@@ -109,7 +109,9 @@ async def process_line(session, line, line_number, max_images=5, zipf=None, csv_
                         print(f"未找到合适的变体: {item}")
             else:
                 print(f"请求失败 (状态码 {response.status_code}): {url}")
-                break
+                error_flag['value'] = True  # 设置错误标志
+                error_flag['lines'].append(line_number)  # 记录出错的行号
+                return
         except Exception as e:
             print(f"请求异常: {e} - {url}")
             error_flag['value'] = True  # 设置错误标志
