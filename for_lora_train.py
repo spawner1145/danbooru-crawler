@@ -172,7 +172,7 @@ async def main(txt_path, save_dir="downloaded_images", timeout=1000, proxies=Non
     return None
 
 if __name__ == "__main__":
-    txt_path = "artist_full.txt"
+    txt_path = "artist_full.txt"# 所有你需要爬的标签txt，每行一个tag，不同tag会保存到不同的文件夹里
     save_dir = "downloaded_images"
     timeout = 5000
     proxies = {"http://": 'http://127.0.0.1:7890', "https://": 'http://127.0.0.1:7890'}
